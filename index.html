@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-touch-fullscreen" content="yes">
+<title>小钓手的30天钓鱼学院</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= 首页 · 30天地图 ================= -->
+  <section id="screen-home">
+    <div class="hero">
+      <div class="mascot">🎣</div>
+      <div class="hero-main">
+        <h1>小钓手的30天钓鱼学院</h1>
+        <p>每天一个好故事＋一门钓鱼本领，听、说、读、写、玩</p>
+        <p>和钓手叔叔一起，成为沉稳又聪明的小钓手！</p>
+        <div class="progressbar"><div id="home-progress" style="width:0%"></div></div>
+        <span class="sticky" id="home-count">已完成 0 / 30 天</span>
+      </div>
+    </div>
+    <div class="map" id="home-map"></div>
+    <div class="mapnote">完成当天的听／说／读／写／玩，就能解锁第 2、3 天…</div>
+  </section>
+
+  <!-- ================= 学习日 ================= -->
+  <section id="screen-day" class="hidden">
+    <div class="topbar">
+      <button class="back" onclick="goHome()">🏠</button>
+      <div class="title" id="day-title">第1天</div>
+      <div style="width:42px"></div>
+    </div>
+
+    <div class="dayhero">
+      <span class="chip" id="day-chip">第 1 天</span>
+      <h1><span id="day-emoji">🎣</span><span id="day-name">姜太公钓鱼</span></h1>
+      <p id="day-sub">愿者上钩</p>
+    </div>
+
+    <div class="tabs" id="day-tabs">
+      <div class="tab" data-p="listen" onclick="showPanel('listen')">👂 听一听</div>
+      <div class="tab" data-p="speak" onclick="showPanel('speak')">🗣️ 说一说</div>
+      <div class="tab" data-p="read"  onclick="showPanel('read')">📖 读一读</div>
+      <div class="tab" data-p="write" onclick="showPanel('write')">✍️ 写一写</div>
+      <div class="tab" data-p="play" onclick="showPanel('play')">🎮 玩一玩</div>
+    </div>
+
+    <!-- 听 -->
+    <div class="panel" id="panel-listen">
+      <div class="listenbox">
+        <div class="story-title">今天的故事</div>
+        <div class="story-text" id="listen-story"></div>
+        <button class="big-btn" onclick="speakStory()">🔊 读给小钓手听</button>
+        <div class="moralbox">✨ 小道理：<span id="listen-moral"></span></div>
+      </div>
+      <div class="card">
+        <div class="section-label">🔁 听一听，跟一跟</div>
+        <p class="sub-note">点小喇叭，跟着念一句顺口溜。</p>
+        <div id="listen-rhyme"></div>
+      </div>
+      <div class="craftbox">
+        <h3>🧪 动手小实验（和爸妈一起做）</h3>
+        <p id="listen-craft"></p>
+      </div>
+      <details class="parent"><summary>👨‍👦 家长锦囊（点击打开）</summary><p id="listen-parent"></p></details>
+      <button class="big-btn cta" onclick="doneListen()">✅ 我听完了，去下一关</button>
+    </div>
+
+    <!-- 说 -->
+    <div class="panel" id="panel-speak">
+      <div class="card">
+        <div class="section-label">🗣️ 大声说：复述小句子</div>
+        <p class="sub-note">先听钓手叔叔读给你听，再录下自己的声音，比比谁更响亮！</p>
+        <div id="speak-list"></div>
+      </div>
+      <details class="parent"><summary>👨‍👩‍👧 家长锦囊（点击打开）</summary>
+        <p>几分钟只练 1-2 句即可，重在"敢开口"。孩子说完给个击掌，别急着纠音。录音回放能让孩子自己听出进步。</p>
+      </details>
+      <button class="big-btn cta" onclick="doneSpeak()">✅ 我说完啦！</button>
+    </div>
+
+    <!-- 读 -->
+    <div class="panel" id="panel-read">
+      <div class="card">
+        <div class="section-label">🌱 蒙氏三段式识字（图片＋文字）</div>
+        <p class="thr-hint" id="three-hint"></p>
+        <div id="three-body" style="text-align:center"></div>
+        <div class="three-ctl" id="three-ctl"></div>
+      </div>
+      <details class="parent"><summary>👨‍🏫 三段式识字方法（家长锦囊）</summary>
+        <p><b>第1段·命名</b>：指着图字卡慢慢说"这是 水"。<br>
+        <b>第2段·辨别</b>：问宝宝"水在哪里？请指给我看"。<br>
+        <b>第3段·回忆</b>：指着图片问"这是什么？"。每天反复几次，孩子自己就会啦。</p>
+      </details>
+    </div>
+
+    <!-- 写 -->
+    <div class="panel" id="panel-write">
+      <div class="trace-wrap">
+        <div class="section-label">🖐️ 描红写字板</div>
+        <div class="trace-tabs" id="trace-tabs"></div>
+        <div class="canvas-holder"><canvas id="trace-canvas" width="520" height="520"></canvas></div>
+        <div class="seqtip" id="trace-seq"></div>
+        <div class="hint">先用指尖顺着淡淡的字描一遍，就像摸蒙氏砂纸字，再用小手指描红。</div>
+        <div class="row-center">
+          <button class="ghost" onclick="clearTrace()">🧽 重来</button>
+          <button onclick="finishTrace()">✅ 我写完啦</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 玩 -->
+    <div class="panel" id="panel-play">
+      <div class="card">
+        <div class="section-label">🧩 配对游戏：鱼和它的名字</div>
+        <p class="sub-note">上面选图片，下面选对应的字／词，配对成功就能继续答题。</p>
+        <div class="pair-grid" id="match-emoji" style="margin-bottom:14px"></div>
+        <div class="pair-grid" id="match-char"></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <div class="section-label">🔗 句式小屋：连词小课堂</div>
+        <p class="sub-note" id="sx-tip"></p>
+        <div id="sx-body"></div>
+      </div>
+      <div class="qz" id="quiz-box" style="margin-top:14px">
+        <div class="section-label">❓ 小小过关：你听懂了吗</div>
+        <div id="quiz-body"></div>
+      </div>
+    </div>
+
+    <details class="parent"><summary>🎨 今天还可在家做（生活练习）</summary><p id="day-craft"></p></details>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
