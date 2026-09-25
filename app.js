@@ -43,67 +43,32 @@ function doneSpeak() {
   toast("说一说完成！🗣️");
 }
 
-// ===================== 语音朗读（流畅男播音员 · Web Speech API） =====================
-// 注意：网页只能"选用"浏览器/系统里已有的声音。本机只有女声 Microsoft Huihui，
-// 若用 Edge 打开会自动加载在线男播音员（云扬/云希/云峰）。首页已提供"播音员声音"选择器。
+// ===================== 语音朗读（首选：微软云扬在线男播音员） =====================
+// 网页只能"选用"浏览器里的声音。建议用 Edge 打开：云扬（男·新闻播报）会被自动选中。
+// 若某台电脑没有男声（例如系统只有女声），会自动压低音调，尽量接近男播音员。
 let voicesCache = [];
-function loadVoices() {
-  try { voicesCache = speechSynthesis.getVoices(); } catch (e) {}
-  if (typeof fillVoicePicker === "function") fillVoicePicker();
-}
+function loadVoices() { try { voicesCache = speechSynthesis.getVoices(); } catch (e) {} }
 if ("speechSynthesis" in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
 const VOICE_RATE = 0.96, VOICE_PITCH = 1.02, MALE_PITCH = 0.9;
 const ZH_MALE = [/yunxi/i, /云希/i, /yunyang/i, /云扬/i, /yunfeng/i, /云峰/i, /kangkang/i, /康康/i, /yunjian/i, /云健/i, /yunhao/i, /云昊/i, /yujun/i, /羽俊/i, /guoyu/i, /国宇/i, /zhiwei/i, /志伟/i, /xiaofeng/i, /晓峰/i, /zhidao/i, /志道/i, /男/i, /老李/i, /man/i, /male/i];
 const ANNOUNCER = [/yunyang/i, /云扬/i, /yunfeng/i, /云峰/i, /yunxi/i, /云希/i, /news/i, /播音/i, /广播/i, /broadcast/i];
 function isFemale(v) { return /female|女声|女生|girl|woman|Xiaoxiao|晓晓|Huihui|慧慧|Yaoyao|婷婷|Ting-ting|Meijia|美佳/i.test(v.name); }
-function zhVoices() { return voicesCache.filter(v => /zh|cmn/i.test(v.lang)); }
-function pickScore(v) {
-  if (isFemale(v)) return -80;
-  let s = 0;
-  if (ANNOUNCER.some(r => r.test(v.name))) s += 70;
-  else if (ZH_MALE.some(r => r.test(v.name))) s += 45;
-  if (/natural|neural|online|在线|网络/i.test(v.name)) s += 16;
-  if (/zh[-_]CN/i.test(v.lang)) s += 8;
-  if (!v.localService) s += 4;
-  return s;
-}
 function pickZh() {
-  const zh = zhVoices();
+  const zh = voicesCache.filter(v => /zh|cmn/i.test(v.lang));
   if (!zh.length) return null;
-  if (S.voice) {
-    const hit = zh.filter(v => v.name === S.voice)[0];
-    if (hit) return hit;
+  const yunyang = zh.filter(v => /yunyang|云扬/i.test(v.name));
+  if (yunyang.length) return yunyang[0];
+  function score(v) {
+    if (isFemale(v)) return -80;
+    let s = 0;
+    if (ANNOUNCER.some(r => r.test(v.name))) s += 70;
+    else if (ZH_MALE.some(r => r.test(v.name))) s += 45;
+    if (/natural|neural|online|在线|网络/i.test(v.name)) s += 16;
+    if (/zh[-_]CN/i.test(v.lang)) s += 8;
+    if (!v.localService) s += 4;
+    return s;
   }
-  return zh.slice().sort((a, b) => pickScore(b) - pickScore(a))[0] || null;
-}
-function voiceTag(v) {
-  if (ANNOUNCER.some(r => r.test(v.name))) return "📣 男播音";
-  if (!isFemale(v) && ZH_MALE.some(r => r.test(v.name))) return "🎙️ 男声";
-  if (isFemale(v)) return "👩 女声";
-  return "🔊 未分类";
-}
-function voiceLabel(v) { return voiceTag(v) + " · " + v.name.replace(/Microsoft /g, ""); }
-// 播音员声音选择器（男声优先；只有系统/浏览器带男声时才会有男声选项）
-function fillVoicePicker() {
-  const sel = $("voice-sel"); if (!sel) return;
-  const zh = zhVoices().slice().sort((a, b) => pickScore(b) - pickScore(a));
-  sel.innerHTML = '<option value="">🎧 自动选男播音员</option>' +
-    zh.map(v => '<option value="' + v.name.replace(/"/g, "&quot;") + '"' + (S.voice === v.name ? " selected" : "") + '>' + voiceLabel(v) + '</option>').join("");
-  const note = $("voice-note");
-  if (!note) return;
-  if (!zh.length) { note.textContent = "语音列表加载中…"; return; }
-  const v = pickZh();
-  if (!v) { note.textContent = "未检测到中文语音，请换 Chrome / Edge 打开。"; return; }
-  if (S.voice) { note.textContent = "已选 " + voiceTag(v); return; }
-  if (!isFemale(v)) { note.textContent = "正在用 " + voiceTag(v) + " 播报"; return; }
-  note.textContent = "⚠️ 本机暂无男声，已用女声压低音调。用 Edge 打开会自动出现男播音员（云扬/云希）。";
-}
-function onVoiceSelected(el) {
-  S.voice = el.value || ""; save();
-  const v = pickZh();
-  toast(v ? "已切换：" + voiceLabel(v) : "自动选择最佳男播音员");
-  speechSynthesis.cancel();
-  speakSingle("大家好，这里是钓手叔叔的钓鱼学院，欢迎收听。");
+  return zh.slice().sort((a, b) => score(b) - score(a))[0] || null;
 }
 function makeUtterance(text) {
   const u = new SpeechSynthesisUtterance(text);
@@ -162,7 +127,7 @@ function speakStory() {
       '<div class="story-title">' + title.split("·")[1] + '</div>' +
       '<div class="story-sub">' + d.sub + ' · 今天的故事</div>' +
       lines.map(l => '<div class="line">' + l + '</div>').join("") +
-      '<button class="btn" onclick="var u=new SpeechSynthesisUtterance(this.parentNode.textContent.trim());u.lang=\'zh-CN\';var vs=speechSynthesis.getVoices();var zh=vs.filter(function(v){return /zh|cmn/i.test(v.lang)});function s(v){if(/female|女声|Xiaoxiao|晓晓|Huihui|慧慧/i.test(v.name))return -8;var n=0;if(/yunyang|云扬|yunfeng|云峰|yunxi|云希|kangkang|康康|男/.test(v.name))n+=6;if(/natural|neural|在线/i.test(v.name))n+=2;return n}zh.sort(function(a,b){return s(b)-s(a)});u.voice=zh[0]||null;u.rate=0.96;u.pitch=1.02;speechSynthesis.cancel();speechSynthesis.speak(u)">🔊 男播音员再读一遍</button>' +
+      '<button class="btn" onclick="var u=new SpeechSynthesisUtterance(this.parentNode.textContent.trim());u.lang=\'zh-CN\';var vs=speechSynthesis.getVoices();var zh=vs.filter(function(v){return /zh|cmn/i.test(v.lang)});var yy=zh.filter(function(v){return /yunyang|云扬/i.test(v.name)});function s(v){if(/female|女声|Xiaoxiao|晓晓|Huihui|慧慧/i.test(v.name))return -8;var n=0;if(/yunyang|云扬|yunfeng|云峰|yunxi|云希|kangkang|康康|男/.test(v.name))n+=6;if(/natural|neural|在线/i.test(v.name))n+=2;return n}zh.sort(function(a,b){return s(b)-s(a)});u.voice=(yy[0]||zh[0])||null;u.rate=0.96;u.pitch=(u.voice&&/female|女声|Xiaoxiao|晓晓|Huihui|慧慧/i.test(u.voice.name))?0.9:1.02;speechSynthesis.cancel();speechSynthesis.speak(u)">🔊 男播音员再读一遍</button>' +
       '<button class="btn" style="background:#9fbf72;margin-top:10px" onclick="window.close()">✖ 听完关闭</button>' +
       '</div></body></html>'
     );
@@ -689,7 +654,6 @@ function init() {
   if (typeof applyPhotos === "function") applyPhotos();
   setupCanvas();
   renderHome();
-  if (typeof fillVoicePicker === "function") fillVoicePicker();
   if (!S.welcomed) {
     S.welcomed = true; save();
     clearOverlays();
