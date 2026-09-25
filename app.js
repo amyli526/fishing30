@@ -44,31 +44,75 @@ function doneSpeak() {
 }
 
 // ===================== 语音朗读（流畅男播音员 · Web Speech API） =====================
+// 注意：网页只能"选用"浏览器/系统里已有的声音。本机只有女声 Microsoft Huihui，
+// 若用 Edge 打开会自动加载在线男播音员（云扬/云希/云峰）。首页已提供"播音员声音"选择器。
 let voicesCache = [];
-function loadVoices() { try { voicesCache = speechSynthesis.getVoices(); } catch (e) {} }
+function loadVoices() {
+  try { voicesCache = speechSynthesis.getVoices(); } catch (e) {}
+  if (typeof fillVoicePicker === "function") fillVoicePicker();
+}
 if ("speechSynthesis" in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
-const VOICE_RATE = 0.96, VOICE_PITCH = 1.02;
+const VOICE_RATE = 0.96, VOICE_PITCH = 1.02, MALE_PITCH = 0.9;
 const ZH_MALE = [/yunxi/i, /云希/i, /yunyang/i, /云扬/i, /yunfeng/i, /云峰/i, /kangkang/i, /康康/i, /yunjian/i, /云健/i, /yunhao/i, /云昊/i, /yujun/i, /羽俊/i, /guoyu/i, /国宇/i, /zhiwei/i, /志伟/i, /xiaofeng/i, /晓峰/i, /zhidao/i, /志道/i, /男/i, /老李/i, /man/i, /male/i];
 const ANNOUNCER = [/yunyang/i, /云扬/i, /yunfeng/i, /云峰/i, /yunxi/i, /云希/i, /news/i, /播音/i, /广播/i, /broadcast/i];
+function isFemale(v) { return /female|女声|女生|girl|woman|Xiaoxiao|晓晓|Huihui|慧慧|Yaoyao|婷婷|Ting-ting|Meijia|美佳/i.test(v.name); }
+function zhVoices() { return voicesCache.filter(v => /zh|cmn/i.test(v.lang)); }
+function pickScore(v) {
+  if (isFemale(v)) return -80;
+  let s = 0;
+  if (ANNOUNCER.some(r => r.test(v.name))) s += 70;
+  else if (ZH_MALE.some(r => r.test(v.name))) s += 45;
+  if (/natural|neural|online|在线|网络/i.test(v.name)) s += 16;
+  if (/zh[-_]CN/i.test(v.lang)) s += 8;
+  if (!v.localService) s += 4;
+  return s;
+}
 function pickZh() {
-  const zh = voicesCache.filter(v => /zh|cmn/i.test(v.lang));
+  const zh = zhVoices();
   if (!zh.length) return null;
-  function score(v) {
-    if (/female|女声|女生|girl|woman|Xiaoxiao|晓晓|Huihui|慧慧|Yaoyao|婷婷|Ting-ting|Meijia/i.test(v.name)) return -80;
-    let s = 0;
-    if (ANNOUNCER.some(r => r.test(v.name))) s += 70;
-    else if (ZH_MALE.some(r => r.test(v.name))) s += 45;
-    if (/natural|neural|online|在线|网络/i.test(v.name)) s += 16;
-    if (/zh[-_]CN/i.test(v.lang)) s += 8;
-    if (!v.localService) s += 4;
-    return s;
+  if (S.voice) {
+    const hit = zh.filter(v => v.name === S.voice)[0];
+    if (hit) return hit;
   }
-  return zh.slice().sort((a, b) => score(b) - score(a))[0] || null;
+  return zh.slice().sort((a, b) => pickScore(b) - pickScore(a))[0] || null;
+}
+function voiceTag(v) {
+  if (ANNOUNCER.some(r => r.test(v.name))) return "📣 男播音";
+  if (!isFemale(v) && ZH_MALE.some(r => r.test(v.name))) return "🎙️ 男声";
+  if (isFemale(v)) return "👩 女声";
+  return "🔊 未分类";
+}
+function voiceLabel(v) { return voiceTag(v) + " · " + v.name.replace(/Microsoft /g, ""); }
+// 播音员声音选择器（男声优先；只有系统/浏览器带男声时才会有男声选项）
+function fillVoicePicker() {
+  const sel = $("voice-sel"); if (!sel) return;
+  const zh = zhVoices().slice().sort((a, b) => pickScore(b) - pickScore(a));
+  sel.innerHTML = '<option value="">🎧 自动选男播音员</option>' +
+    zh.map(v => '<option value="' + v.name.replace(/"/g, "&quot;") + '"' + (S.voice === v.name ? " selected" : "") + '>' + voiceLabel(v) + '</option>').join("");
+  const note = $("voice-note");
+  if (!note) return;
+  if (!zh.length) { note.textContent = "语音列表加载中…"; return; }
+  const v = pickZh();
+  if (!v) { note.textContent = "未检测到中文语音，请换 Chrome / Edge 打开。"; return; }
+  if (S.voice) { note.textContent = "已选 " + voiceTag(v); return; }
+  if (!isFemale(v)) { note.textContent = "正在用 " + voiceTag(v) + " 播报"; return; }
+  note.textContent = "⚠️ 本机暂无男声，已用女声压低音调。用 Edge 打开会自动出现男播音员（云扬/云希）。";
+}
+function onVoiceSelected(el) {
+  S.voice = el.value || ""; save();
+  const v = pickZh();
+  toast(v ? "已切换：" + voiceLabel(v) : "自动选择最佳男播音员");
+  speechSynthesis.cancel();
+  speakSingle("大家好，这里是钓手叔叔的钓鱼学院，欢迎收听。");
 }
 function makeUtterance(text) {
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = "zh-CN"; const v = pickZh(); if (v) u.voice = v;
-  u.rate = VOICE_RATE; u.pitch = VOICE_PITCH; u.volume = 1;
+  u.lang = "zh-CN";
+  const v = pickZh(); if (v) u.voice = v;
+  const male = v && !isFemale(v);
+  u.rate = VOICE_RATE;
+  u.pitch = male ? VOICE_PITCH : MALE_PITCH;
+  u.volume = 1;
   return u;
 }
 function speakSingle(text) { try { speechSynthesis.speak(makeUtterance(text)); } catch (e) {} }
@@ -645,6 +689,7 @@ function init() {
   if (typeof applyPhotos === "function") applyPhotos();
   setupCanvas();
   renderHome();
+  if (typeof fillVoicePicker === "function") fillVoicePicker();
   if (!S.welcomed) {
     S.welcomed = true; save();
     clearOverlays();

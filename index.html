@@ -24,6 +24,11 @@
         <span class="sticky" id="home-count">已完成 0 / 30 天</span>
       </div>
     </div>
+    <div class="voicebar">
+      <label for="voice-sel">🎙️ 播音员声音</label>
+      <select id="voice-sel" onchange="onVoiceSelected(this)"></select>
+      <span class="voice-note" id="voice-note"></span>
+    </div>
     <div class="map" id="home-map"></div>
     <div class="mapnote">完成当天的听／说／读／写／玩，就能解锁第 2、3 天…</div>
   </section>
