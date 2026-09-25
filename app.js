@@ -43,28 +43,56 @@ function doneSpeak() {
   toast("说一说完成！🗣️");
 }
 
-// ===================== 语音朗读（男播音员 · Web Speech API） =====================
+// ===================== 语音朗读（流畅男播音员 · Web Speech API） =====================
 let voicesCache = [];
 function loadVoices() { try { voicesCache = speechSynthesis.getVoices(); } catch (e) {} }
 if ("speechSynthesis" in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
-const ZH_MALE = [/yunxi/i, /云希/i, /yunyang/i, /云扬/i, /yunfeng/i, /云峰/i, /kangkang/i, /康康/i, /yujun/i, /羽俊/i, /guoyu/i, /国宇/i, /zhiwei/i, /志伟/i, /xiaofeng/i, /晓峰/i, /男/i, /老李/i, /man/i, /male/i];
+const VOICE_RATE = 0.96, VOICE_PITCH = 1.02;
+const ZH_MALE = [/yunxi/i, /云希/i, /yunyang/i, /云扬/i, /yunfeng/i, /云峰/i, /kangkang/i, /康康/i, /yunjian/i, /云健/i, /yunhao/i, /云昊/i, /yujun/i, /羽俊/i, /guoyu/i, /国宇/i, /zhiwei/i, /志伟/i, /xiaofeng/i, /晓峰/i, /zhidao/i, /志道/i, /男/i, /老李/i, /man/i, /male/i];
+const ANNOUNCER = [/yunyang/i, /云扬/i, /yunfeng/i, /云峰/i, /yunxi/i, /云希/i, /news/i, /播音/i, /广播/i, /broadcast/i];
 function pickZh() {
   const zh = voicesCache.filter(v => /zh|cmn/i.test(v.lang));
   if (!zh.length) return null;
-  const score = v =>
-    ((v.localService ? 0 : 12)) +
-    (/natural|在线|自然|online|网络/i.test(v.name) ? 18 : 0) +
-    (/zh[-_]CN/i.test(v.lang) ? 8 : 0) +
-    (ZH_MALE.some(r => r.test(v.name)) ? 30 : 0) +
-    (/female|女生|女声|Xiaoxiao|晓晓|Huihui|慧慧|Yaoyao|Meijia|Ting-ting|婷婷/i.test(v.name) ? -40 : 0);
+  function score(v) {
+    if (/female|女声|女生|girl|woman|Xiaoxiao|晓晓|Huihui|慧慧|Yaoyao|婷婷|Ting-ting|Meijia/i.test(v.name)) return -80;
+    let s = 0;
+    if (ANNOUNCER.some(r => r.test(v.name))) s += 70;
+    else if (ZH_MALE.some(r => r.test(v.name))) s += 45;
+    if (/natural|neural|online|在线|网络/i.test(v.name)) s += 16;
+    if (/zh[-_]CN/i.test(v.lang)) s += 8;
+    if (!v.localService) s += 4;
+    return s;
+  }
   return zh.slice().sort((a, b) => score(b) - score(a))[0] || null;
 }
+function makeUtterance(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "zh-CN"; const v = pickZh(); if (v) u.voice = v;
+  u.rate = VOICE_RATE; u.pitch = VOICE_PITCH; u.volume = 1;
+  return u;
+}
+function speakSingle(text) { try { speechSynthesis.speak(makeUtterance(text)); } catch (e) {} }
 function speak(text) {
   if (!("speechSynthesis" in window)) { toast("此浏览器不支持语音，请用 Chrome 或 Edge 打开哦"); return; }
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "zh-CN"; const v = pickZh(); if (v) u.voice = v;
-  u.rate = 0.92; u.pitch = 0.95; u.volume = 1; speechSynthesis.speak(u);
+  speakSingle(text);
+}
+// 把长文本切成一句句，避免浏览器一次读太长而卡壳、中断，读起来更流畅
+function chunkText(text, max) {
+  max = max || 90;
+  const parts = text.match(/[^。！？!?]+[。！？!?]?/g) || [text];
+  const chunks = []; let cur = "";
+  parts.forEach(p => {
+    if (cur && (cur + p).length > max) { chunks.push(cur); cur = p; }
+    else cur += p;
+  });
+  if (cur) chunks.push(cur);
+  return chunks.length ? chunks : [text];
+}
+function speakLines(chunks) {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  chunks.forEach(c => speakSingle(c));
 }
 function speakStory() {
   const d = DAY_DATA[CUR];
@@ -90,13 +118,13 @@ function speakStory() {
       '<div class="story-title">' + title.split("·")[1] + '</div>' +
       '<div class="story-sub">' + d.sub + ' · 今天的故事</div>' +
       lines.map(l => '<div class="line">' + l + '</div>').join("") +
-      '<button class="btn" onclick="speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(this.parentNode.textContent.trim());u.lang=\'zh-CN\';u.rate=0.92;u.pitch=0.95;speechSynthesis.speak(u)">🔊 在新页面再听一遍</button>' +
+      '<button class="btn" onclick="var u=new SpeechSynthesisUtterance(this.parentNode.textContent.trim());u.lang=\'zh-CN\';var vs=speechSynthesis.getVoices();var zh=vs.filter(function(v){return /zh|cmn/i.test(v.lang)});function s(v){if(/female|女声|Xiaoxiao|晓晓|Huihui|慧慧/i.test(v.name))return -8;var n=0;if(/yunyang|云扬|yunfeng|云峰|yunxi|云希|kangkang|康康|男/.test(v.name))n+=6;if(/natural|neural|在线/i.test(v.name))n+=2;return n}zh.sort(function(a,b){return s(b)-s(a)});u.voice=zh[0]||null;u.rate=0.96;u.pitch=1.02;speechSynthesis.cancel();speechSynthesis.speak(u)">🔊 男播音员再读一遍</button>' +
       '<button class="btn" style="background:#9fbf72;margin-top:10px" onclick="window.close()">✖ 听完关闭</button>' +
       '</div></body></html>'
     );
     w.document.close();
   }
-  speak(full);
+  speakLines(chunkText(full));
 }
 
 // ===================== 地图 / 首页 =====================
@@ -614,6 +642,7 @@ function startToday() {
   renderHome();
 }
 function init() {
+  if (typeof applyPhotos === "function") applyPhotos();
   setupCanvas();
   renderHome();
   if (!S.welcomed) {
